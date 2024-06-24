@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Voice Communication</title>
+</head>
+<body>
+    <button id="start">Start Recording</button>
+    <button id="stop">Stop Recording</button>
+    <audio id="responseAudio" controls></audio>
+
+    <script>
+        const startButton = document.getElementById('start');
+        const stopButton = document.getElementById('stop');
+        const responseAudio = document.getElementById('responseAudio');
+        let mediaRecorder;
+        let audioChunks = [];
+
+        const ws = new WebSocket('ws://127.0.0.1:3000');
+
+        ws.onmessage = (event) => {
+            const audioBlob = new Blob([event.data], { type: 'audio/mp3' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            responseAudio.src = audioUrl;
+        };
+
+        startButton.addEventListener('click', async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                ws.send(audioBlob);
+                audioChunks = [];
+            };
+
+            mediaRecorder.start();
+        });
+
+        stopButton.addEventListener('click', () => {
+            mediaRecorder.stop();
+        });
+    </script>
+</body>
+</html>
